@@ -1,13 +1,12 @@
 include "../include/sllist.spl";
 
-procedure filter(x: Node) returns (res: Node)
-  requires lseg(x, null)
+procedure filter(lst: Node) returns (res: Node)
+  requires lseg(lst, null)
   ensures lseg(res, null)
 {
-  var prv: Node, curr := null, x;
-  res := x;
+  var prv: Node, curr := null, lst;
   while (curr != null) 
-    invariant (prv.next |-> curr || prv == null &*& res == curr) -** lseg(res, null);
+    invariant (prv.next |-> curr || prv == null &*& lst == curr) -** lseg(lst, null);
   {
     var old_curr := curr;
     curr := curr.next; 
@@ -16,11 +15,12 @@ procedure filter(x: Node) returns (res: Node)
       if (prv != null) {
         prv.next := old_curr.next;
       } else {
-        res := old_curr.next;
+        lst := old_curr.next;
       }
       free old_curr;
     } else {
       prv := old_curr;
     }
   }
+  return lst;
 }

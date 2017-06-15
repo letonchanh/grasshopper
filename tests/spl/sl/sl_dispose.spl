@@ -5,7 +5,6 @@ procedure dispose(lst: Node)
   ensures emp
 {
   while (lst != null) 
-    invariant lseg(lst, null)
   {
     var curr := lst;
     lst := lst.next; 

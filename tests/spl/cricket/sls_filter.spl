@@ -1,0 +1,30 @@
+include "../include/cricket_defs.spl";
+
+procedure filter (x: LNode)
+  returns (res: LNode)
+  requires slseg(x, null)
+  ensures slseg(res, null)
+{
+  var curr := x;
+  var prv: LNode := null;
+  while (curr != null) 
+    invariant (lseg(x, prv) &*& prv.next == curr &*& lseg(prv, curr) &*& lseg(curr, null))
+           || (prv == null &*& x == curr &*& lseg(curr, null))
+  {
+    var old_curr := curr;
+    curr := curr.next;
+    var nondet: Bool;
+    if (nondet) {
+      if (prv != null) {
+        prv.next := curr;
+      } else {
+        x := curr;
+      }
+      free old_curr;
+    } else {
+      prv := old_curr;
+    }
+  }
+  
+  return x;
+}

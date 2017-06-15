@@ -1,0 +1,38 @@
+include "../include/cricket_defs.spl";
+
+procedure insertion_sort(lst: LNode)
+  requires lseg(lst, null)
+  requires lst != null
+  ensures slseg(lst, null)
+{
+  var prv: LNode;
+  prv := null;
+  var srt : LNode;
+  srt := lst;
+  while (srt != null)
+	invariant (prv == null &*& srt == lst &*& lseg(lst, null)) 
+           || (lseg (lst, prv) &*& prv.next |-> srt &*& lseg (srt, null))           
+  {
+    var curr : LNode;
+    curr := srt.next;
+    var min : LNode;
+    min := srt;
+    while (curr != null)    
+      invariant (prv == null &*& lseg (lst, srt) &*& lseg(curr, null))
+             || (lseg(lst, prv) &*& lseg (prv, srt) &*& lseg(curr, null))
+      invariant lseg(srt, min) 
+      invariant lseg(min, curr)
+      invariant min != null
+    {
+      if (curr.data < min.data) {
+        min := curr;
+      }
+      curr := curr.next;
+    }
+    var tmp := min.data;
+    min.data := srt.data;
+    srt.data := tmp;
+    prv := srt;
+    srt := srt.next;
+  }
+}

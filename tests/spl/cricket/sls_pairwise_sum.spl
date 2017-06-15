@@ -1,0 +1,31 @@
+include "../include/cricket_defs.spl";
+
+procedure sls_pairwise_sum(x: LNode, y: LNode) returns (z: LNode)
+  requires slseg(x, null) &*& slseg(y, null)
+  ensures slseg(x, null) &*& slseg(y, null) &*& slseg(z, null)
+{
+  if (x == null || y == null) {
+    return null;
+  }
+  z := new LNode;
+  var curr_x := x;
+  var curr_y := y;
+  var last_z := z;
+  z.data := curr_x.data + curr_y.data;
+  z.next := null;
+  while (curr_x.next != null && curr_y.next != null) 
+    invariant curr_x != null &*& lseg(x, curr_x, curr_x.data) &*& lseg(curr_x, null)
+    invariant curr_y != null &*& lseg(y, curr_y, curr_y.data) &*& lseg(curr_y, null)
+    invariant lseg(z, last_z, last_z.data) &*& last_z.next |-> null
+    invariant last_z.data <= curr_x.data + curr_y.data
+  {
+    var tmp := last_z;
+    curr_x := curr_x.next;
+    curr_y := curr_y.next;
+    last_z := new LNode;
+    last_z.next := null;
+    last_z.data := curr_x.data + curr_y.data;        
+    tmp.next := last_z;
+  }
+  return z;
+}

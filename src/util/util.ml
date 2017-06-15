@@ -10,6 +10,11 @@ module IntMap = Map.Make(struct
     let compare = compare
   end)
 
+module Int64Set = Set.Make(struct
+    type t = Int64.t
+    let compare = Int64.compare
+end)
+                        
 module StringSet = Set.Make(struct
     type t = string
     let compare = compare
@@ -99,6 +104,8 @@ let rec find_map fn = function
       | v -> v
 
 let flat_map f ls = List.flatten (List.map f ls)
+
+let flat_mapi f ls = List.flatten (List.mapi f ls)
 
 let find_index elt ls =
   let rec traverse i lst = match lst with
@@ -299,3 +306,108 @@ let read_file file =
 let rec remove_duplicates lst = match lst with
   | x :: xs -> x :: remove_duplicates (List.filter (fun y -> y <> x) xs)
   | [] -> []
+
+(* Checks if s1 ends with string s2 *)
+let str_ends_with s1 s2 =
+  let (l1, l2) = (String.length s1, String.length s2) in
+  if (l1 >= l2) then
+    let s1End = String.sub s1 (l1 - l2) l2 in
+    (String.compare s1End s2) = 0
+  else
+    false
+
+let listTblAddFirst (t : ('a, 'b list) Hashtbl.t) (key : 'a) (value : 'b) =
+  try
+    let oldValues = Hashtbl.find t key in
+    Hashtbl.replace t key (value :: oldValues)
+  with Not_found ->
+    Hashtbl.add t key [value]
+		
+let listTblAddLast (t : ('a, 'b list) Hashtbl.t) (key : 'a) (value : 'b) =
+  try
+    let oldValues = Hashtbl.find t key in
+    Hashtbl.replace t key (oldValues @ [value])
+  with Not_found ->
+    Hashtbl.add t key [value]
+
+(** Append two ('a, 'b list) hashtables t1, t2. 
+    Note: This mutates t1.
+    We define t.find k = [] for keys k that do not occur in t.
+    Let t1' be the original value of t1. Then the result of listTblAppend is that
+    Hashtbl.find t1 k = (Hashtbl.find t1 k) @ (Hashtbl.find t2 k)
+    Note: Does not modify t2. *)
+let listTblAppend (t1 : ('a, 'b list) Hashtbl.t) (t2 : ('a, 'b list) Hashtbl.t) =
+  Hashtbl.iter
+    (fun key values2 ->
+     try
+       let oldValues1 = Hashtbl.find t1 key in
+       Hashtbl.replace t1 key (oldValues1 @ values2)
+     with Not_found ->
+       Hashtbl.add t1 key values2)
+    t2
+
+let remove_duplicates l =
+  let remove_elt e l =
+    let rec go l acc = match l with
+      | [] -> List.rev acc
+      | x::xs when e = x -> go xs acc
+      | x::xs -> go xs (x::acc)
+    in go l []
+  in
+  let rec go l acc = match l with
+    | [] -> List.rev acc
+    | x :: xs -> go (remove_elt x xs) (x::acc)
+  in go l []
+
+let rec expand f xs ys =
+  match xs with
+  | [] -> ys
+  | x::xs ->
+     let (xs',ys') = f x in
+     expand f (List.rev_append xs' xs) (List.rev_append ys' ys)
+
+let extract k list =
+  let rec aux k acc emit = function
+    | [] -> acc
+    | h :: t ->
+       if k = 1 then aux k (emit [h] acc) emit t else
+         let new_emit x = emit (h :: x) in
+         aux k (aux (k-1) acc new_emit t) emit t
+  in
+  let emit x acc = x :: acc in
+  aux k [] emit list
+
+let pairs list =
+  let rec loop acc = function
+    | []
+    | _ :: [] -> acc
+    | x :: xs ->
+       let newAcc = List.fold_left (fun res y -> (x,y)::res) acc xs in
+       loop newAcc xs in
+  loop [] list
+
+let rec map_partial f = function
+  | [] -> [] | x::xs ->
+		(match f x with
+		 | None -> map_partial f xs
+		 | Some y -> y::(map_partial f xs))
+
+let rec sublist b e l =
+  match l with
+    [] -> failwith "sublist"
+  | h :: t ->
+     let tail = if e=0 then [] else sublist (b-1) (e-1) t in
+     if b>0 then tail else h :: tail
+
+let remove_nth l indices =
+  fst (List.fold_left (fun (l',index) li ->
+		       if (List.exists (fun i -> i = index) indices)
+		       then (l', index+1)
+		       else (l'@[li], index+1)
+		      ) ([],0) l)
+
+let rec split3 = function
+  | [] -> ([], [], [])
+  | (x, y, z) :: rest ->
+     let (rx, ry, rz) = split3 rest in
+     (x :: rx, y :: ry, z :: rz)

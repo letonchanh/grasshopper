@@ -448,7 +448,7 @@ let vcgen prog proc =
   | None -> []
 
 (** Generate verification conditions for procedure [proc] of program [prog] and check them. *)
-let check_proc prog proc =
+let check_proc prog ?(multiple_models=false) proc =
   let check_vc errors (vc_name, (vc_msg, pp), vc0, labels) =
     let check_one vc =
       if errors <> [] && not !Config.robust then errors else begin
@@ -462,9 +462,14 @@ let check_proc prog proc =
         let session_name =
           Filename.chop_extension (Filename.basename pp.sp_file) ^ "_" ^ vc_name 
         in
-        match Prover.get_model ~session_name:session_name ~sat_means:sat_means vc with
+	match Prover.get_model
+	  ~session_name:session_name ~sat_means:sat_means
+	  ~multiple_models:multiple_models
+	  vc
+	with
         | None -> errors
-        | Some model -> 
+	| Some ([]) -> errors
+	| Some (model :: models) -> 
           (* generate error message from model *)
             let add_msg pos msg error_msgs =
               let filtered_msgs = 
@@ -502,13 +507,15 @@ let check_proc prog proc =
             let error_msg =
               String.concat "\n\n" (vc_msg :: error_msg_strings)
             in
-            (pp, error_msg, model) :: errors
+            (pp, error_msg, model, models) :: errors
       end
     in check_one vc0
   in
   let _ = Debug.info (fun () -> "Checking procedure " ^ string_of_ident (name_of_proc proc) ^ "...\n") in
   let vcs = vcgen prog proc in
+  let vcs = List.sort (fun (vcname1, _, _, _) (vcname2, _, _, _) -> compare vcname2 vcname1) vcs in (* Sort "foo_invariant" before "foo_check_heap_access" ... *)
   List.fold_left check_vc [] vcs
+
 
 (** Generate a counterexample trace from a failed VC of procedure [proc] in [prog]. 
   * Here [pp] is the point of failure in [proc] and [model] is the counterexample model. *)

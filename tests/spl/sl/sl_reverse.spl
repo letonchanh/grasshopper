@@ -16,6 +16,7 @@ procedure reverse(lst: Node)
     tmp.next := rev;
     rev := tmp;
   }
+  return rev;
 }
 
 

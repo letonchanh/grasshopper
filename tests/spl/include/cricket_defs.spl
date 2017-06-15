@@ -1,0 +1,285 @@
+/* Structure and predicate for simple & sorted singly-linked lists */
+
+struct LNode {
+  var next: LNode;
+  var data: Int;
+}
+
+predicate lseg(x: LNode, y: LNode) {
+  acc({ z: LNode :: Btwn(next, x, z, y) && z != y }) &*& Btwn(next, x, y, y)
+}
+
+predicate lseg_lowerbound(lb: Int, FP: Set<LNode>)
+  requires acc(FP)
+{
+  forall z: LNode :: z in FP ==> lb <= z.data
+}
+
+predicate lseg_upperbound(ub: Int, FP: Set<LNode>)
+  requires acc(FP)
+{
+  forall z: LNode :: z in FP ==> z.data <= ub
+}
+
+predicate lseg_increasing(x: LNode, FP: Set<LNode>)
+  requires acc(FP)
+{
+  forall y: LNode, z: LNode :: y in FP && z in FP && Btwn(next,x,y,z) ==> y.data <= z.data
+}
+
+predicate lseg_strictly_increasing(x: LNode, FP: Set<LNode>)
+  requires acc(FP)
+{
+  forall y: LNode, z: LNode :: y in FP && z in FP && Btwn(next,x,y,z) ==> y.data < z.data || y == z
+}
+
+predicate lseg_decreasing(x: LNode, FP: Set<LNode>)
+  requires acc(FP)
+{
+  forall y: LNode, z: LNode :: y in FP && z in FP && Btwn(next,x,y,z) ==> z.data <= y.data
+}
+
+predicate uslseg(x: LNode, y: LNode, lb: Int) {
+  exists X: Set<LNode> ::
+    lseg(x, y) && acc(X) &*&
+    lseg_lowerbound(lb, X) &*&
+    lseg_increasing(x, X)
+}
+
+predicate ulseg(x: LNode, y: LNode, lb: Int) {
+  exists X: Set<LNode> ::
+    lseg(x, y) && acc(X) &*&
+    lseg_lowerbound(lb, X)
+}
+
+
+predicate slseg(x: LNode, y: LNode) {
+  exists X: Set<LNode> ::
+    lseg(x, y) && acc(X) &*&
+    lseg_increasing(x, X)
+}
+
+
+predicate rslseg(x: LNode, y: LNode) {
+  exists X: Set<LNode> ::
+    lseg(x, y) && acc(X) &*&
+    lseg_decreasing(x, X)
+}
+
+predicate llseg(x: LNode, y: LNode, ub: Int) {
+  exists X: Set<LNode> ::
+    lseg(x, y) && acc(X) &*&
+    lseg_upperbound(ub, X)
+}
+
+predicate lslseg(x: LNode, y: LNode, ub: Int) {
+  exists X: Set<LNode> ::
+    lseg(x, y) && acc(X) &*&
+    lseg_upperbound(ub, X) &&
+    lseg_increasing(x, X)
+}
+
+predicate blseg(x: LNode, y: LNode, lb: Int, ub: Int) {
+  exists X: Set<LNode> ::
+    lseg(x, y) && acc(X) &*&
+    lseg_lowerbound(lb, X) &&
+     lseg_upperbound(ub, X)
+}
+
+predicate bslseg(x: LNode, y: LNode, lb: Int, ub: Int) {
+  exists X: Set<LNode> ::
+    lseg(x, y) && acc(X) &*&
+    lseg_lowerbound(lb, X) &&
+    lseg_upperbound(ub, X) &&
+    lseg_increasing(x, X)
+}
+
+/* Structure and predicates for simple tree (without data) */
+
+struct TNode {
+  var left: TNode;
+  var right: TNode;
+  var ghost parent: TNode;
+}
+
+function t_parent(r: TNode) returns (p: TNode)
+  requires r == null || acc(r)
+  ensures r != null ==> p == r.parent
+  ensures r == null ==> p == null
+
+predicate t_parent_equal_left_child(FP: Set<TNode>)
+  requires acc(FP)
+{
+  (forall x in FP :: x.left == null || Reach(parent, x.left, x) && x.left != x) &&
+  (forall x in FP, y in FP :: x.left in FP && Btwn(parent, x.left, y, x) ==> x == y || x.left == y)
+}
+
+predicate t_parent_equal_right_child(FP: Set<TNode>)
+  requires acc(FP)
+{
+  (forall x in FP :: x.right == null || Reach(parent, x.right, x) && x.right != x) &&
+  (forall x in FP, y in FP :: x.right in FP && Btwn(parent, x.right, y, x) ==> x == y || x.right == y)
+}
+
+predicate t_left_right_distinct(FP: Set<TNode>)
+  requires acc(FP)
+{
+  (forall x in FP :: x.left == x.right ==> x.left == null 
+    @(matching x.right yields x.left)
+    @(matching x.left yields x.right))
+}
+
+predicate t_reach_via_left_right(FP: Set<TNode>)
+  requires acc(FP)
+{
+  forall x in FP, y in FP :: Btwn(parent, y, x, x) ==>
+      x == y || Btwn(parent, y, x.left, x) || Btwn(parent, y, x.right, x)
+}
+predicate tree(r: TNode) {
+  exists FP: Set<TNode> ::
+    (acc({ x: TNode :: Reach(parent, x, r) && r != null}) && acc(FP)) &*&
+    t_parent_equal_left_child(FP) &&
+    t_parent_equal_right_child(FP) &&
+    t_left_right_distinct(FP) &&
+    t_reach_via_left_right(FP)
+}
+
+
+/* Structure and predicates for lists of lists */
+
+struct LLNode {
+  var llnext: LLNode;
+  var lldata: LNode;
+}
+
+function ll_witness(x: LNode, FP_LL: Set<LLNode>, FP_L: Set<LNode>) returns (y: LLNode)
+  requires acc(FP_LL)
+  /* The witness function is correct */
+  ensures (x != null && x in FP_L && y in FP_LL && Btwn(next, y.lldata, x, null))
+  || ((x == null || x !in FP_L) && y == null)
+  @(matching x yields ll_witness(x, FP_LL, FP_L))
+
+function ll_inner_footprint(FPOuter: Set<LLNode>)
+  returns (FPInner: Set<LNode>)
+  /* The witness of every inner node is in the outer node set */
+  ensures forall l in FPInner :: ll_witness(l, FPOuter, FPInner) in FPOuter
+  /* For every outer node, the inner nodes hanging off it are in the inner node set */
+  ensures forall t in FPOuter, l: LNode :: Btwn(next, t.lldata, l, null) && l != null ==> l in FPInner
+  /* Disjointness: the only thing that can reach a list node is its witness */
+  ensures forall t in FPOuter, l: LNode :: Btwn(next, t.lldata, l, null) && l != null ==> t == ll_witness(l, FPOuter, FPInner)
+
+predicate list_of_lists(x: LLNode, y: LLNode) {
+  exists FPOuter: Set<LLNode> ::
+    Reach(llnext, x, y)
+  &*& (acc({ z: LLNode :: Btwn(llnext, x, z, y) && z != y }) && acc(FPOuter))
+  &*& acc(ll_inner_footprint(FPOuter))
+  &*& (forall ll in FPOuter :: Reach(next, ll.lldata, null))
+}
+
+
+/* Structure and predicates for lists of trees */
+  
+struct LTNode {
+  var ltnext: LTNode;
+  var ltdata: TNode;
+}
+ 
+function lt_witness(t: TNode, FP_L: Set<LTNode>, FP_T: Set<TNode>) returns (l: LTNode)
+  requires acc(FP_L)
+  /* The witness function is correct */
+  ensures (t != null && t in FP_T && l in FP_L && Reach(parent, t, l.ltdata) && l.ltdata != null)
+  || ((t == null || t !in FP_T) && l == null)
+  @(matching t yields lt_witness(t, FP_L, FP_T))
+  
+function lt_inner_footprint(FP_L: Set<LTNode>) returns (FP_T: Set<TNode>)
+  requires acc(FP_L)
+  /* The witness of every tree node is in the list node set */
+  ensures forall t in FP_T :: lt_witness(t, FP_L, FP_T) in FP_L
+  /* For every list node, the tree nodes hanging off it are in the tree node set */
+  ensures forall l in FP_L, t: TNode :: Reach(parent, t, l.ltdata) && l.ltdata != null ==> t in FP_T
+  /* Disjointness: the only thing that can reach a tree node is its witness */
+  ensures forall l in FP_L, t: TNode :: Reach(parent, t, l.ltdata) && l.ltdata != null ==> l == lt_witness(t, FP_L, FP_T)
+
+predicate list_of_trees(x: LTNode, y: LTNode) {
+  exists FPOuter: Set<LTNode>,FPInner: Set<TNode> ::
+    Reach(ltnext, x, y)
+  &*& (acc({ z: LTNode :: Btwn(ltnext, x, z, y) && z != y }) && acc(FPOuter))
+  &*& FPInner == lt_inner_footprint(FPOuter)
+  &*& acc(lt_inner_footprint(FPOuter))
+  &*& (t_parent_equal_left_child(FPInner) &&
+     t_parent_equal_right_child(FPInner) &&
+     t_left_right_distinct(FPInner) &&
+     t_reach_via_left_right(FPInner))
+}
+
+
+/* Structure and predicates for trees of lists */
+
+struct TLNode {
+  var tlleft: TLNode;
+  var tlright: TLNode;
+  var tldata: LNode;
+  var ghost tlparent: TLNode;
+}
+
+function tl_witness(l: LNode, FP_T: Set<TLNode>, FP_L: Set<LNode>) returns (t: TLNode)
+  requires acc(FP_T)
+  /* The witness function is correct */
+  ensures (l != null && l in FP_L && t in FP_T && Btwn(next, t.tldata, l, null))
+  || ((l == null || l !in FP_L) && t == null)
+  @(matching l yields tl_witness(l, FP_T, FP_L))
+  
+function tl_inner_footprint(FP_T: Set<TLNode>) returns (FP_N: Set<LNode>)
+  requires acc(FP_T)
+  /* The witness of every list node is in the tree node set */
+  ensures forall l in FP_N :: tl_witness(l, FP_T, FP_N) in FP_T
+  /* For every tree node, the list nodes hanging off it are in the list node set */
+  ensures forall t in FP_T, l: LNode :: Btwn(next, t.tldata, l, null) && l != null ==> l in FP_N
+  /* Disjointness: the only thing that can reach a list node is its witness */
+  ensures forall t in FP_T, l: LNode :: Btwn(next, t.tldata, l, null) && l != null ==> t == tl_witness(l, FP_T, FP_N)
+
+function tl_parent(r: TLNode) returns (p: TLNode)
+  requires r == null || acc(r)
+  ensures r != null ==> p == r.tlparent
+  ensures r == null ==> p == null
+
+predicate tl_parent_equal_left_child(FP: Set<TLNode>)
+  requires acc(FP)
+{
+  (forall x in FP :: x.tlleft == null || Reach(tlparent, x.tlleft, x) && x.tlleft != x) &&
+  (forall x in FP, y in FP :: x.tlleft in FP && Btwn(tlparent, x.tlleft, y, x) ==> x == y || x.tlleft == y)
+}
+
+predicate tl_parent_equal_right_child(FP: Set<TLNode>)
+  requires acc(FP)
+{
+  (forall x in FP :: x.tlright == null || Reach(tlparent, x.tlright, x) && x.tlright != x) &&
+  (forall x in FP, y in FP :: x.tlright in FP && Btwn(tlparent, x.tlright, y, x) ==> x == y || x.tlright == y)
+}
+
+predicate tl_tlleft_tlright_distinct(FP: Set<TLNode>)
+  requires acc(FP)
+{
+  (forall x in FP :: x.tlleft == x.tlright ==> x.tlleft == null 
+    @(matching x.tlright yields x.tlleft)
+    @(matching x.tlleft yields x.tlright))
+}
+
+predicate tl_reach_via_left_right(FP: Set<TLNode>)
+  requires acc(FP)
+{
+  forall x in FP, y in FP :: Btwn(tlparent, y, x, x) ==>
+      x == y || Btwn(tlparent, y, x.tlleft, x) || Btwn(tlparent, y, x.tlright, x)
+}
+
+predicate tree_of_lists(r: TLNode) {
+  exists FPOuter: Set<TLNode> ::
+    (acc({ x: TLNode :: Reach(tlparent, x, r) && r != null}) && acc(FPOuter)) &*&
+    acc(tl_inner_footprint(FPOuter)) &*&
+    (forall t in FPOuter ::
+       Reach(next, t.tldata, null)) &&
+       tl_parent_equal_left_child(FPOuter) &&
+       tl_parent_equal_right_child(FPOuter) &&
+       tl_tlleft_tlright_distinct(FPOuter) &&
+       tl_reach_via_left_right(FPOuter)
+}

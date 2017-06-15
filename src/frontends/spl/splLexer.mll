@@ -107,6 +107,7 @@ let digits = digitchar+
 
 rule token = parse
   [' ' '\t'] { token lexbuf }
+| "\r\n" { Lexing.new_line lexbuf; token lexbuf }
 | '\n' { Lexing.new_line lexbuf; token lexbuf }
 | "//" [^ '\n']* { token lexbuf }
 | "/*" { comments 0 lexbuf }
@@ -172,6 +173,7 @@ and comments level = parse
          else comments (level - 1) lexbuf
        }
 | "/*" { comments (level + 1) lexbuf }
+| "\r\n" { Lexing.new_line lexbuf; comments (level) lexbuf }
 | '\n' { Lexing.new_line lexbuf; comments (level) lexbuf }
 | _ { comments level lexbuf }
 | eof { token lexbuf }

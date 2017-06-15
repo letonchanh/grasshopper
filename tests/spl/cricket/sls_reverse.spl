@@ -1,0 +1,21 @@
+include "../include/cricket_defs.spl";
+
+procedure reverse(lst: LNode) returns (res: LNode)
+  requires slseg(lst, null);
+  ensures rslseg(res, null);
+{
+  var curr: LNode;
+  curr := lst;
+  var rev : LNode := null;
+  while (curr != null)
+    invariant (rev == null &*& lseg(curr, null)) || (lseg(rev, null) &*& lseg(curr, null));
+  {
+    var tmp: LNode;
+    tmp := curr;
+    curr := curr.next;
+    tmp.next := rev;
+    rev := tmp;
+  }
+  
+  return rev;
+}

@@ -1,0 +1,32 @@
+include "../include/cricket_defs.spl";
+
+procedure traverse_tree(t: TNode)
+  requires tree(t) &*& t != null
+  ensures tree(t) &*& t != null
+{
+  if (t.left != null)
+  {
+    traverse_tree(t.left);
+  }
+  if (t.right != null)
+  {
+    traverse_tree(t.right);
+  }
+}
+
+procedure traverse(l: LTNode)
+  requires list_of_trees(l, null)
+  ensures list_of_trees(l, null)
+{
+  var oc : LTNode := l;
+  while (oc != null)
+    invariant list_of_trees(l, oc)
+    invariant list_of_trees(oc, null)
+  {
+    if (l.ltdata != null)
+    {
+      traverse_tree(l.ltdata);
+    }
+    oc := oc.ltnext;
+  }
+}

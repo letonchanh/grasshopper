@@ -109,13 +109,151 @@ let parse_spl_program main_file =
     parse
       StringSet.empty
       [(main_dir, main_file, GrassUtil.dummy_position)]
-      SplSyntax.empty_spl_program
-  in
-  SplChecker.check (SplSyntax.add_alloc_decl prog)
+      SplSyntax.empty_spl_program in
+  prog
 
+(** Cricket: invariant inference engine *)
+
+(** Gets models for failing VCs at line number [lnum] of [spl_prog] *)
+let get_models_for_prog spl_prog proc_name assert_pos =
+  Cricket.clear_identifiers ();
+
+  if Cricket.do_log_debug () then
+    SplSyntax.print_spl_program stdout spl_prog;
+
+  let spl_prog = SplChecker.check (SplSyntax.add_alloc_decl spl_prog) in
+  let prog = SplTranslator.to_program spl_prog in
+  let simple_prog = Verifier.simplify prog in
+
+  let proc = Prog.find_proc simple_prog proc_name in
+  let robust_val = !Config.robust in
+  Config.robust := true;
+  let errors = Verifier.check_proc simple_prog proc in
+  Config.robust := robust_val;
+
+  let rec find_error = function
+    | (err_pos, _, model, model_list) :: errs ->
+       (* Printf.fprintf stdout "Found error on line %d\n" err_pos.Grass.sp_start_line; *)
+       if err_pos = assert_pos then model :: model_list
+       else find_error errs
+    | [] -> []    
+  in
+  find_error errors
+
+(** Given a model and an SL formula, constructs an spl program that checks if the assertion holds for the given model *)
+let assert_formula_about_model var_decls formula model_filename =
+  let store, heap = Locust.read_heap_from_file model_filename  in
+
+  Cricket.clear_identifiers ();
+
+  (* Include all the data structure definitions *)
+  let spl_prog = parse_spl_program "tests/spl/include/cricket_defs.spl" in
+
+  let spl_prog, proc_name =
+    Locust.add_model_and_assertion_to_prog var_decls (store, heap) formula spl_prog in
+
+  if Cricket.do_log_spew () then
+    SplSyntax.print_spl_program stdout spl_prog;
+
+  try
+    (* This part copied from Grasshopper.check_spl_program: *)
+    let spl_prog = SplChecker.check (SplSyntax.add_alloc_decl spl_prog) in
+    let prog = SplTranslator.to_program spl_prog in
+    let simple_prog = Verifier.simplify prog in
+    
+    let dummy_proc = Prog.find_proc simple_prog proc_name in        
+    let errors = Cricket.run_grasshopper (fun () -> Verifier.check_proc simple_prog dummy_proc) in
+    match errors with
+    | [] -> false
+    | _ -> true
+  with
+  | _ -> false
+
+let beetle file =
+  let spl_prog = parse_spl_program file in
+
+  Cricket.log_msg "Executing program to get samples";
+  let sampled_sts =
+    Sampler.sample get_models_for_prog spl_prog false 10
+  in
+
+  Cricket.log_msg "Calling Beetle";
+  Beetle.learn_annotations
+    assert_formula_about_model
+    spl_prog
+    sampled_sts;
+
+  Cricket.log (-1)
+    (Format.sprintf
+      "Program succesfully verified [%.2fs total, %.2fs beetle, %.2fs beetle-grasshopper]."
+        (Unix.gettimeofday() -. Cricket.basetime)
+        (!Cricket.beetle_time) (!Cricket.grasshopper_time))
+
+let locust file =
+  let spl_prog = parse_spl_program file in
+
+  Cricket.log_msg "Executing program to get samples";
+  let samples = Sampler.sample get_models_for_prog spl_prog true 6 in
+
+  Locust.infer_invariant assert_formula_about_model spl_prog samples
+  |> ignore;
+
+  Cricket.log (-1)
+    (Format.sprintf
+      "Program succesfully verified [%.2fs total, %.2fs platypus, %.2fs locust-grasshopper]."
+        (Unix.gettimeofday() -. Cricket.basetime) (!Cricket.platypus_time)
+        (!Cricket.grasshopper_time))
+
+(** Main entry point for cricket *)
+let cricket input_file =
+  let spl_prog = parse_spl_program input_file in
+
+  let in_frame = Cricket.compute_in_frame_pars spl_prog in
+  (* Hashtbl.iter (fun pname vars -> Cricket.log_msg (Printf.sprintf "Proc %s, in-frame vars [%s]" (fst pname) (String.concat ", " (Util.StringSet.elements vars)))) in_frame; *)
+  
+  Cricket.log_msg "Executing program to get samples for Locust";
+  Config.locust := true;
+  Config.beetle := false;
+  let l_samples = Sampler.sample get_models_for_prog spl_prog true 6 in
+
+  Cricket.log_msg "Calling Locust";
+  let learning_state =
+    Locust.infer_invariant assert_formula_about_model spl_prog l_samples
+  in
+
+  Cricket.log_msg "Inserting learnt invariants into original program";
+  let prog_w_shape_invs =
+    Locust.insert_annotations_into_spl_prog
+      ~main:true ~frame:(Some in_frame) spl_prog learning_state
+  in
+  (* let out_chan = open_out "_prog.spl" in *)
+  (* SplSyntax.print_spl_program out_chan prog_w_shape_invs; *)
+  (* close_out out_chan; *)
+  (* Cricket.log_msg ("Written annotated SPL program to _prog.spl"); *)
+
+  let locust_grasshopper_time = !Cricket.grasshopper_time in
+  Cricket.grasshopper_time := 0.0;
+  
+  Cricket.log_msg "Executing program to get samples for Beetle";
+  Config.locust := false;
+  Config.beetle := true;
+  let samples = Sampler.sample get_models_for_prog prog_w_shape_invs false 10 in
+
+  Cricket.log_msg "Calling Beetle";
+  Beetle.learn_annotations
+    assert_formula_about_model
+    prog_w_shape_invs
+    samples;
+
+  Cricket.log (-1)
+    (Format.sprintf
+      "Program succesfully verified [%.2fs total, %.2fs platypus, %.2fs locust-grasshopper, %.2fs beetle, %.2fs beetle-grasshopper]."
+        (Unix.gettimeofday() -. Cricket.basetime) (!Cricket.platypus_time) locust_grasshopper_time
+        (!Cricket.beetle_time) (!Cricket.grasshopper_time))
    
 (** Check SPL program in main file [file] and procedure [proc] *)
 let check_spl_program spl_prog proc =
+  let spl_prog = SplChecker.check (SplSyntax.add_alloc_decl spl_prog) in
   let prog = SplTranslator.to_program spl_prog in
   let simple_prog = Verifier.simplify prog in
   let check simple_prog first proc =
@@ -124,7 +262,7 @@ let check_spl_program spl_prog proc =
       else Verifier.check_proc simple_prog proc
     in
     List.fold_left
-      (fun first (pp, error_msg, model) ->
+      (fun first (pp, error_msg, model, _) ->
         output_trace simple_prog proc (pp, model);
         let _ =
           if !Config.robust
@@ -195,9 +333,16 @@ let _ =
     if !Config.unsat_cores then Config.named_assertions := true;
     Debug.info (fun () -> greeting);
     SmtLibSolver.select_solver (String.uppercase !Config.smtsolver);
-    if !main_file = ""
-    then cmd_line_error "input file missing"
-    else begin
+    if !main_file = "" then
+      cmd_line_error "input file missing"
+    else if !Config.cricket then
+      cricket !main_file
+    else if !Config.locust then
+      locust !main_file
+    else if !Config.beetle then
+      beetle !main_file
+    else
+      begin
       let spl_prog = parse_spl_program !main_file in
       let res = check_spl_program spl_prog !Config.procedure in
       print_stats start_time; 
@@ -216,6 +361,8 @@ let _ =
       print_endline "parse error"; 
       exit 1
   | ProgError.Prog_error _ as e ->
+     Printexc.print_backtrace stderr;
       output_string stderr (ProgError.to_string e ^ "\n");
       exit 1
 	
+

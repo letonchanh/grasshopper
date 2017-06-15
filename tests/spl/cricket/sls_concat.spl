@@ -1,0 +1,20 @@
+include "../include/cricket_defs.spl";
+
+procedure concat(a: LNode, b: LNode, x: Int) returns (res: LNode)
+  requires lslseg(a, null, x) &*& uslseg(b, null, x);
+  ensures slseg(res, null);
+{
+  if (a == null) {
+    return b;
+  } else {
+    var curr: LNode;
+    curr := a;
+    while(curr.next != null) 
+      invariant curr != null &*& lseg(a, curr) &*& lseg(curr, null)
+    {
+      curr := curr.next; 
+    }
+    curr.next := b;
+    return a;
+  }
+}

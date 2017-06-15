@@ -28,6 +28,13 @@ module IdMap = Map.Make(struct
     let compare = compare
   end)
 
+(** Like IdMap.find but ignores the number part of the ident *)
+let idmap_find_uniq vname map =
+  let matching_vars = IdMap.filter (fun (name, _) _ -> name = vname) map in
+  match IdMap.cardinal matching_vars with
+  | 1 -> Some (IdMap.choose matching_vars |> snd)
+  | _ -> None
+
 (** sorts *)
 type sort =
   | Bool | Byte | Int (** basic sorts *)

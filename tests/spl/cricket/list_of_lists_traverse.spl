@@ -1,0 +1,26 @@
+include "../include/cricket_defs.spl";
+
+procedure traverse(x: LLNode)
+  requires list_of_lists(x, null)
+  ensures list_of_lists(x, null)
+{
+  var oc : LLNode := x;
+  while (oc != null)
+    invariant list_of_lists(x, oc)
+    invariant list_of_lists(oc, null)
+  {
+    var ocdata : LNode := oc.lldata;
+    var ocnext : LLNode := oc.llnext;
+    var ic : LNode := ocdata;
+    while (ic != null)
+      invariant lseg(ic, null)
+      invariant acc(Set<LLNode>(oc))
+      invariant lseg(ocdata, ic)
+      invariant list_of_lists(ocnext, null)
+      invariant list_of_lists(x, oc)
+    {
+      ic := ic.next;
+    }
+    oc := ocnext;
+  }
+}

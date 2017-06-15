@@ -10,7 +10,6 @@ procedure concat(a: Node, b: Node)
   } else {
     var curr := a;
     while (curr.next != null) 
-      invariant acc(curr) -** lseg(a, null)
     {
       curr := curr.next; 
     }

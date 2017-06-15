@@ -9,6 +9,11 @@ let procedure = ref None
 
 (* File name where counterexample model is saved. *)
 let model_file = ref ""
+(* File name where txt-format counterexample model is saved. *)
+let model_txt_file = ref ""
+(* Flag controlling extra models generation *)
+let extra_models = ref false
+
 (* Display the edges going to null in the model *)
 let model_null_edge = ref false
 
@@ -67,6 +72,21 @@ let compile_to = ref ""
 (* optmisation: oldify fields only if modified *)
 let opt_field_mod = ref true
 
+(* Shape invariant inference *)
+let locust = ref false
+		 
+(* Numeric invariant inference *)
+let beetle = ref false
+
+(* Shape + Numeric invariant inference *)
+let cricket = ref false
+
+(* Level of output of cricket components: -1 - quiet, 0 - log, 1 - verbose, 2 - debug. *)
+let cricket_log_level = ref 0
+		 
+(* Look for disjunctive shape invariants *)
+let disj_inv = ref false
+
 (* compute the congruence closure as a fixed point (horn clauses) *)
 let ccFixedPoint = ref true
 
@@ -80,6 +100,8 @@ let cmd_options =
    ("-stats", Arg.Set print_stats, " Print statistics");
    ("-lint", Arg.Set flycheck_mode, " Print single line error messages for on-the-fly checking");
    ("-model", Arg.Set_string model_file, "<file>  Produce counterexample model for the first failing verification condition");
+   ("-model-txt", Arg.Set_string model_txt_file, "<file>  Produce counterexample model for the first failing VC in cleaned-up, heap-only, txt file format");
+   ("-extra-models", Arg.Set extra_models, " Try to output more models using blocking clauses");
    ("-nulledges", Arg.Set model_null_edge, " Show the edges going to null in the model");
    ("-trace", Arg.Set_string trace_file, "<file>  Produce counterexample trace for the first failing verification condition");
    ("-dumpghp", Arg.Set_int dump_ghp, "<num>  Print intermediate program after specified simplification stage (num=0,1,2,3)");
@@ -103,8 +125,14 @@ let cmd_options =
    ("-smtsolver", Arg.Set_string smtsolver, "<solver> Choose SMT solver (z3, cvc4, cvc4mf), e.g., 'z3+cvc4mf'");
    ("-smtpatterns", Arg.Set smtpatterns, " Always add pattern annotations to quantifiers in SMT queries");
    ("-smtsets", Arg.Set use_set_theory, " Use solver's set theory to encode sets (if supported)");
-   ("-smtarrays", Arg.Set encode_fields_as_arrays, " Use solver's array theory to encode fields");
+   ("-smtarrays", Arg.Set encode_fields_as_arrays, " Use solver's array theory to encode fields\n\nOptions for compiler:");
    ("-bitvector", Arg.Set use_bitvector, " Use bitvector theory for integers\n\nOptions for compiler:");
    ("-simplearrays", Arg.Set simple_arrays, " Use simple array encoding");
-   ("-compile", Arg.Set_string compile_to, "<filename> Compile SPL program to a C program outputed as a file with the given name.");
+   ("-compile", Arg.Set_string compile_to, "<filename> Compile SPL program to a C program outputed as a file with the given name.\n\nOptions for Cricket:");
+   (*("-optSelfFrame", Arg.Set optSelfFrame, " enable generation of self-framing clauses for SL predicates");*)
+   ("-locust", Arg.Set locust, " Infer shape invariants from sample runs.");
+   ("-beetle", Arg.Set beetle, " Infer shape-data invariants from sample runs.");
+   ("-cricket", Arg.Set cricket, " Infer shape + data invariants from sample runs.");
+   ("-cricket-log-level", Arg.Set_int cricket_log_level, "<num>  Level of cricket log to print (-1 quiet, 0 log, 1 verbose).\n\n");
+   ("-disj-inv", Arg.Set disj_inv, " Look for disjunctive shape invariants.");
   ]

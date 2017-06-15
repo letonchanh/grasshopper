@@ -11,9 +11,6 @@ procedure remove(lst: Node)
     var nondet: Bool;
     var curr := lst;
     while (nondet && curr.next != null) 
-      invariant curr != null
-      invariant lseg(lst, curr)
-      invariant lseg(curr, null)
     {
       havoc nondet;
       curr := curr.next;

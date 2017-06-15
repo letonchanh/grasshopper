@@ -1,0 +1,17 @@
+include "../include/cricket_defs.spl";
+
+procedure sls_traverse(lst: LNode) returns (res: LNode)
+  requires slseg(lst, null)
+  ensures slseg(res, null)
+{
+  var curr: LNode;
+  curr := lst;
+  while (curr != null) 
+    invariant lseg (lst, curr)
+    invariant lseg (curr, null)
+  {
+    curr := curr.next; 
+  }
+  return lst;
+}
+

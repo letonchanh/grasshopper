@@ -145,8 +145,10 @@ let is_free_symbol = function
   | FreeSym _ -> true
   | _ -> false
     
+let used_names = Hashtbl.create 0
+
 let fresh_ident =
-  let used_names = Hashtbl.create 0 in
+  (* let used_names = Hashtbl.create 0 in *)
   fun (name : string) ->
     let last_index = 
       try Hashtbl.find used_names name 

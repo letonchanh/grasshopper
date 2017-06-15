@@ -1,10 +1,56 @@
 // Structure and predicate declarations for singly-linked lists
 
+struct OuterNode {
+  var onext: OuterNode;
+  var odata: Node;
+}
+
 struct Node {
   var next: Node;
+  var data: Int;
 }
  
 predicate lseg(x: Node, y: Node) {
-  acc({ z: Node :: Btwn(next, x, z, y) && z != y }) &*& Reach(next, x, y)
+  Reach(next, x, y) &*&
+  acc({ z: Node :: Btwn(next, x, z, y) && z != y })
 }
 
+predicate olseg(x: OuterNode, y: OuterNode) {
+  Reach(onext, x, y) &*&
+  acc({ z: OuterNode :: Btwn(onext, x, z, y) && z != y })
+}
+
+function only_outer_lseg_footprint(x: OuterNode, y: OuterNode)
+  returns (FP: Set<OuterNode>)
+  ensures forall z: Loc<OuterNode> :: z in FP == (Btwn(onext, x, z, y) && z != y)
+
+function lseg_footprint(x: Node, y: Node)
+  returns (FP: Set<Node>)
+  ensures forall z: Loc<Node> :: z in FP == (Btwn(next, x, z, y) && z != y)
+
+function head_witness(x: Node) returns (y: OuterNode)
+
+function nlseg_inner_footprints_union(FPOuter: Set<OuterNode>)
+  returns (FPInner: Set<Node>)
+  ensures
+    //Make sure that all elements reachable from FPOuter are in FPInner:
+    (forall x in FPOuter ::
+       (exists FPXInner: Set<Node> ::
+       FPXInner == lseg_footprint(x.odata, null) &&
+       //The footprint of the inner list of x is in FPInner:       
+       FPXInner subsetof FPInner &&
+       //There is witness for the head of the list:
+       (forall u in FPXInner :: head_witness(u) == x))) &&
+    //Make sure that all FPInner elements are coming from one of the sublists dangling off an FPOuter elements:
+    (forall u in FPInner ::
+       (exists x in FPOuter ::
+          x == head_witness(u) &&
+          u in lseg_footprint(x.odata, null)))
+
+predicate nlseg(x: OuterNode, y: OuterNode) {
+  exists FPOuter: Set<OuterNode>, FPInner: Set<Node> :: 
+    Reach(onext, x, y) &*&
+    FPOuter == only_outer_lseg_footprint(x, y) &*&
+    FPInner == nlseg_inner_footprints_union(FPOuter) &*&
+    acc(FPOuter) &*& acc(FPInner)
+}

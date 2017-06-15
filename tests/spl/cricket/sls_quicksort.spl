@@ -1,0 +1,40 @@
+include "../include/cricket_defs.spl";
+
+procedure split(x: LNode, y: LNode, lb: Int, ub: Int) returns (res: LNode)
+  requires lseg(x, y) &*& x != y
+  ensures  lseg(x, res)
+  ensures  lseg(res, y) &*& res != y
+  ensures  Btwn(next, x, res, y)
+{
+  var curr := x.next;
+  var pivot : LNode;
+  pivot := x;
+
+  while (curr != y) 
+    invariant lseg(x, pivot)
+    invariant lseg(pivot, curr) &*& pivot != curr
+    invariant lseg(curr, y)
+    invariant Btwn(next, pivot, curr, y)
+  {
+    if (curr.data < pivot.data) {
+      var tmp := curr.data;
+      curr.data := pivot.next.data;
+      pivot.next.data := pivot.data;
+      pivot.data := tmp;
+      pivot := pivot.next;
+    }
+    curr := curr.next;
+  }
+  return pivot;
+}
+
+procedure quicksort(x: LNode, y: LNode, ghost lb: Int, ghost ub: Int)
+  requires blseg(x, y, lb, ub)
+  ensures  bslseg(x, y, lb, ub)
+{
+  if (x != y && x.next != y) {
+    var pivot := split(x, y, lb, ub);
+    quicksort(x, pivot, lb, pivot.data);
+    quicksort(pivot.next, y, pivot.data, ub);
+  }
+}

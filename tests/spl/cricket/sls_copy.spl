@@ -1,0 +1,33 @@
+include "../include/cricket_defs.spl";
+
+procedure copy(lst: LNode) returns (orig: LNode, result: LNode)
+  requires slseg(lst, null)
+  ensures slseg(orig, null) &*& slseg(result, null)
+{
+  var res : LNode;
+  if (lst == null) {
+    return null, null;
+  } else {
+    res := new LNode;
+    var curr := lst;
+    var cp := res;
+    cp.data := curr.data;
+    cp.next := null;
+    while (curr.next != null) 
+      invariant lseg(lst, curr)
+      invariant lseg(curr, null)
+      invariant lseg(res, cp)
+      invariant lseg(cp, null) &*& cp != null &*& cp.next == null
+      invariant curr != null
+    {
+      var old_cp: LNode;
+      old_cp := cp;
+      cp := new LNode;
+      old_cp.next := cp;
+      curr := curr.next;
+      cp.data := curr.data;
+      cp.next := null;
+    }
+    return lst, res;
+  }
+}

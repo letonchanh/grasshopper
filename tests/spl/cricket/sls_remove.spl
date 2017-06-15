@@ -1,0 +1,26 @@
+include "../include/cricket_defs.spl";
+
+procedure remove(lst: LNode, value: Int) returns (res: LNode)
+  requires slseg(lst, null)
+  ensures slseg(res, null)
+{
+  var curr: LNode, prv: LNode;
+  prv := null;
+  curr := lst;
+  while (curr != null && curr.data < value)
+    invariant prv == null &*& curr == lst &*& lseg(curr, null) ||
+      lseg(lst, prv) &*& lseg(prv, curr) &*& prv != null &*& prv.next == curr &*& lseg(curr, null)
+  {
+    prv := curr;
+    curr := curr.next;
+  }
+  if (curr != null && curr.data == value) {
+    if (prv == null) {
+      lst := curr.next;
+    } else {
+      prv.next := curr.next;
+    }
+    free curr;
+  }
+  return lst;
+}

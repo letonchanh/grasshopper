@@ -83,7 +83,9 @@ let trd3 (_, _, v) = v
 %nonassoc LPAREN
 
 %start main
+%start expr
 %type <SplSyntax.spl_program> main
+%type <SplSyntax.expr> expr
 %%
 
 main:

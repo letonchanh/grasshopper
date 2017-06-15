@@ -1,0 +1,15 @@
+include "../include/cricket_defs.spl";
+
+procedure sls_dispose(lst: LNode)
+  requires slseg(lst, null)
+  ensures emp
+{
+  var curr := lst;
+  while (curr != null) 
+    invariant lseg(curr, null)
+  {
+    var tmp := curr;
+    curr := curr.next; 
+    free tmp;
+  }
+}

@@ -1,0 +1,24 @@
+include "../include/cricket_defs.spl";
+
+procedure sls_insert(lst: LNode, elt: LNode) returns (res: LNode)
+  requires slseg(lst, null) &*& elt.next |-> null;
+  ensures slseg(res, null);
+{
+  if (lst == null || lst.data > elt.data) {
+    elt.next := lst;
+    return elt;
+  } else {
+    var curr: LNode;
+    curr := lst;
+    while (curr.next != null && curr.next.data <= elt.data) 
+      invariant curr != null
+      invariant lseg(lst, curr)
+      invariant lseg(curr, null)
+    {
+      curr := curr.next;
+    }
+    elt.next := curr.next;
+    curr.next := elt;
+    return lst;
+  }
+}

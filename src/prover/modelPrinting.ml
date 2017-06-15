@@ -769,3 +769,271 @@ let print_graph output chan model terms =
  
 let output_html = print_graph mixed_graphviz_html
 let output_graph = print_graph graphviz_output
+
+
+(* Undo SSA encoding: calculate latest version of all loc_sort identifiers *)
+let get_idname_to_latest_ssa_id model loc_sorts =
+  let add_latest_versions_of_srt srt latest_versions =
+    let symbs = get_symbols_of_sort model ([], Loc srt) in
+    let idents =
+      SymbolSet.fold
+	(fun sym idents -> match sym with
+			   | FreeSym iden -> IdSet.add iden idents
+			   | _ -> idents)
+	symbs IdSet.empty in
+    let latest_version_curr =
+      IdSet.fold
+	(fun (name, num) latest_version ->
+	 try
+	   if num > StringMap.find name latest_version
+	   then StringMap.add name num latest_version
+	   else latest_version
+	 with
+	   Not_found -> StringMap.add name num latest_version)
+	idents StringMap.empty
+    in
+    StringMap.fold (fun name num map ->
+		    if StringMap.mem name map
+		    then failwith "output_txt: duplicate identifier names"
+		    else StringMap.add name num map)
+		   latest_version_curr latest_versions
+  in
+  SortSet.fold add_latest_versions_of_srt loc_sorts StringMap.empty
+
+(** Function that turns a counterexample model into a State.state.
+   @param footprint_set (optional) prefix of name of Set to restrict nodes to.
+          Useful to restrict to currently allocated nodes, or FP of proc.
+   @param model the model to output
+*)
+let to_stack_heap ?(footprint_set="") model =
+  let state = State.start_state () in
+	
+  let loc_sorts = get_loc_sorts model in
+  let fld_srts = get_loc_fld_sorts model in
+  let find_term valu sort =
+	     try Some (find_term model valu sort) with
+	     | Failure msg ->
+        Printf.printf "WARNING: ModelPrinting.to_stack_heap: Couldn't find term for value %s of sort %s (got failure: %s).\n"
+          (string_of_value valu) (string_of_sort sort) msg;
+        None
+  in
+
+  let idname_to_latest_ssa_id = get_idname_to_latest_ssa_id model loc_sorts in
+
+  (* To convert all identifiers to integers, first convert the value/symbol/bla
+     to string and then use this string -> int map *)
+  let id_map = StringMap.empty in
+  let id_count = ref 0L in
+  let get_id id_map str =
+    try (id_map, StringMap.find str id_map)
+    with Not_found ->
+      (
+	id_count := Int64.add !id_count 1L;
+	((StringMap.add str !id_count id_map), !id_count)
+      ) in
+  let string_of_loc_value srt l = string_of_sorted_value srt l in
+  let get_id_of_loc id_map srt l = get_id id_map (string_of_loc_value srt l) in
+
+  (** Get the data field from the model *)	
+
+  let output_loc loc l_id srt =
+    let output_data_fields loc rsrt =
+      let symbols_of_sort = get_symbols_of_sort model ([], field_sort srt rsrt) in
+      let max_fld_id_map =
+        SymbolSet.fold
+          (fun fld max_fld_id_map ->
+           match fld with
+           | FreeSym (fName, fId) ->
+              begin
+                let curMaxId =
+                  try max fId (StringMap.find fName max_fld_id_map)
+                  with Not_found -> fId in
+                StringMap.add fName (max curMaxId fId) max_fld_id_map;
+              end
+           | _ -> max_fld_id_map)
+          symbols_of_sort StringMap.empty in
+      SymbolSet.iter
+        (fun fld ->
+         try
+           let printFld =
+             match fld with
+             | FreeSym (fName, fId) -> fId = StringMap.find fName max_fld_id_map
+             | _ -> true in
+           if printFld then
+             let f = interp_symbol model fld ([], field_sort srt rsrt) [] in
+             let fld_str =
+               match fld with
+               | FreeSym (fName, fId) -> fName
+               | _ ->
+                 let s = (string_of_symbol fld) in
+                 Printf.printf "WARNING: ModelPrinting.to_stack_heap: Found unknown field %s.\n" s;
+                 s
+             in
+             let m, d = find_map_value model f [Loc srt] rsrt in
+             let v = fun_app model (MapVal (m, d)) [loc] in
+	     Hashtbl.add state.State.hp
+			 (l_id, fld_str)
+			 (State.ValInt (v |> string_of_value |> Int64.of_string))
+         with Undefined -> (assert false))
+        symbols_of_sort
+    in
+    (output_data_fields loc Int;
+     output_data_fields loc Bool;) in
+  
+  let output_int_vars () = 
+    let ints = get_symbols_of_sort model ([], Int) in
+    SymbolSet.iter 
+      (fun sym ->
+       let str = 
+	 match sym with
+	 | FreeSym (str, _) -> str
+	 | _ -> assert false
+       (*Fixme. Should use string_of_symbol sym*) in
+       let value = interp_symbol model sym ([], Int) [] in
+       (*Printf.fprintf chan "[%s : %s]\n" str (string_of_value value)		*)
+       Hashtbl.add state.State.st
+		   str
+		   (State.ValInt (value |> string_of_value |> Int64.of_string))
+      ) ints
+  in
+
+  let process_srt srt id_map =
+    (* Get set of nodes to restrict to *)
+    let footprint_nodes =
+      match footprint_set with
+      | "" -> None
+      | set_name ->
+	 SortedSymbolMap.fold
+	   (fun (symb, ari) (val_map, ext_val) acc ->
+	    match ari with
+	    | ([], Set srt) when Str.string_match (Str.regexp (set_name ^ ".*")) (string_of_symbol symb) 0 ->
+	       let v = interp_symbol model symb ari [] in
+	       (try
+		   let s = find_set_value model v (srt) in
+		   Cricket.log_verbose ("Restricting model to set: " ^ (string_of_symbol symb));
+		   Some s
+		 with Undefined -> acc
+	       )
+	    | _ -> acc
+	   )
+	   model.intp None
+    in
+    let is_in_footprint l =
+      match footprint_nodes with
+      | Some nodes ->
+	 if ValueSet.mem l nodes then true else false
+      | None -> true
+    in
+
+    (* Find the node pointed to by null and give it the id 0 *)
+    (* TODO can there be different nulls for different sorts? *)
+    let l = interp_symbol model Null ([], Loc srt) [] in
+    let id_map = StringMap.add (string_of_sorted_value srt l) 0L id_map in
+
+    let locs = get_values_of_sort model (Loc srt) in
+    let rsrts =
+      SortSet.fold
+        (function
+          | Map ([Loc srt1], Loc rsrt) when srt1 = srt -> SortSet.add rsrt
+          | _ -> fun rsrts -> rsrts)
+        fld_srts SortSet.empty
+    in
+    let output_flds rsrt id_map =
+      let fld_srt = Map ([Loc srt], Loc rsrt) in
+      let flds = get_values_of_sort model fld_srt in
+      (* Helper map to undo SSA encoding for fields *)
+      let max_fld_id_map =
+        List.fold_left
+          (fun max_fld_id_map fld ->
+	   let term = find_term fld fld_srt in
+           match term with
+	   | Some (Var ((fName, fId), _))
+           | Some (App (FreeSym (fName, fId), _, _)) ->
+              begin
+                let curMaxId =
+                  try max fId (StringMap.find fName max_fld_id_map)
+                  with Not_found -> fId in
+                StringMap.add fName (max curMaxId fId) max_fld_id_map;
+              end
+           | _ -> max_fld_id_map)
+          StringMap.empty flds
+      in
+      let read_arity = [fld_srt; Loc srt], Loc rsrt in
+      List.fold_left
+        (fun id_map f ->
+	 let is_latest_field, f_str =
+	   let term = find_term f fld_srt in
+           match term with
+	   | Some (Var ((fName, fId), _))
+           | Some (App (FreeSym (fName, fId), _, _)) ->
+	      fId = StringMap.find fName max_fld_id_map, fName
+           | _ -> false, ""
+	 in
+	 if is_latest_field then
+           List.fold_left
+	     (fun id_map l ->
+	      try
+		let r = interp_symbol model Read read_arity [f; l] in
+		let id_map, l_id = get_id_of_loc id_map srt l in
+		let id_map, r_id = get_id_of_loc id_map rsrt r in
+		if Debug.is_debug 0 then
+		  begin
+		    let l_str = (string_of_loc_value srt l) in
+		    let r_str = (string_of_loc_value rsrt r) in
+		    Printf.printf "\nFound %s edge: %s -> %s\n" f_str l_str r_str;
+		    Printf.printf "id_map: %s -> %Ld, %s -> %Ld\n" l_str l_id r_str r_id
+		  end;
+		(* Don't print null.next *)
+		if l_id <> 0L && is_in_footprint l then
+		  begin
+		    output_loc l l_id srt;
+		    Hashtbl.add state.State.hp
+				(l_id, f_str)
+				(State.ValAddr r_id)
+		  end;
+		id_map
+	      with Not_found -> id_map
+	     )
+	     id_map locs
+	 else id_map
+	)
+        id_map flds
+    in
+
+    let output_local_vars id_map =
+      SymbolSet.fold
+	(fun sym id_map ->
+	 match sym with
+	 | FreeSym (name, num) ->
+	    if num == StringMap.find name idname_to_latest_ssa_id
+	       && not (Str.string_match (Str.regexp ("sk.*")) name 0)
+	    then
+	      begin
+		let l = interp_symbol model sym ([], Loc srt) [] in
+		let id_map, l_id = get_id_of_loc id_map srt l in
+
+		(*Printf.fprintf chan "[%s : %d]\n" name l_id;*)
+		Hashtbl.add state.State.st name (State.ValAddr l_id);
+		id_map
+	      end
+	    else
+	      id_map
+	 | Null ->
+	    id_map
+	 | _ ->
+	    Printf.printf "\nERROR: got unknown symbol %s\n\n" (string_of_symbol sym);
+	    id_map
+	 )
+	(get_symbols_of_sort model ([], Loc srt)) id_map
+    in
+    let _ = output_int_vars () in
+    let id_map = output_local_vars id_map in
+    SortSet.fold output_flds rsrts id_map
+  in
+  let _ = SortSet.fold process_srt loc_sorts id_map in
+  { state with State.hp_size =
+		 Hashtbl.fold
+		   (fun (addr, _) _ maxAddr -> max addr maxAddr)
+		   state.State.hp
+		   0L
+  }

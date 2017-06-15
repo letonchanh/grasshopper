@@ -207,6 +207,23 @@ let dump_model session f =
     else
       ModelPrinting.output_graph model_chan (Model.complete model) gts;
     close_out model_chan;
+  end;
+  if !Config.model_txt_file <> "" then
+    begin
+	   failwith "Dumping models broken due to refactoring. Fix if needed."
+      (* let gts = ground_terms f in
+      let model = Model.complete (Opt.get (SmtLibSolver.get_model session)) in
+      let model_chan = open_out !Config.model_txt_file in
+      Model.output_txt model_chan model;
+      close_out model_chan;
+
+      InvLearner.assert_form_about_model session model gts;
+
+      if !Config.extra_models then
+	begin
+	  (* Try to get more models *)
+	  (* InvLearner.dump_more_models session model gts; *)
+	end *)
   end
 
 let dump_core session =
@@ -248,16 +265,30 @@ let check_sat ?(session_name="form") ?(sat_means="sat") f =
   SmtLibSolver.quit session;
   result
 
-let get_model ?(session_name="form") ?(sat_means="sat") f =
+let get_model ?(session_name="form") ?(sat_means="sat") ?(multiple_models=false) f =
   let result, session, f_inst = prove session_name sat_means f in
-  let model = 
+  let models = 
     match result with
     | Some true | None ->
         dump_model session f_inst;
-        SmtLibSolver.get_model session
+        let model = SmtLibSolver.get_model session in
+	(match model with
+	 | Some model ->
+	    let model = Model.complete model in
+	    let other_models = []
+	      (* if multiple_models then
+		begin
+		  let gts = ground_terms ~include_atoms:true f in
+		  InvLearner.get_more_models session model gts
+		end
+	      else [] *)
+	    in
+	    Some (model :: other_models)
+	 | None ->
+	    None)
     | Some false -> 
         dump_core session;
         None
   in
   SmtLibSolver.quit session;
-  Util.Opt.map Model.complete model
+  models

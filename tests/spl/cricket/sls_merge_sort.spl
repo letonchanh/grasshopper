@@ -1,0 +1,76 @@
+include "../include/cricket_defs.spl";
+
+procedure merge(a: LNode, b: LNode) returns (res: LNode)
+  requires lseg(a, null) &*& lseg(b, null)
+  ensures lseg(res, null)
+{
+  res := null;
+  if (a == null) {
+    return b;
+  } else if (b == null) {
+    return a;
+  } else if (a.data <= b.data) {
+    res := a;
+    a := a.next;
+  } else {
+    res := b;
+    b := b.next;
+  }
+  
+  var last := res;
+
+  while (a != null || b != null)
+    invariant (last.next |-> a || last.next |-> b)
+    invariant lseg(res, last)
+    invariant lseg(a, null)
+    invariant lseg(b, null)
+  {
+    if (a == null || b != null && a.data > b.data) {
+      last.next := b;
+      last := b;
+      b := b.next;
+    } else {
+      last.next := a;
+      last := a;
+      a := a.next;
+    }
+  }
+  return res;
+}
+
+procedure split(start: LNode) returns (middle: LNode)
+  requires lseg(start, null) &*& start != null
+  ensures lseg(start, null) &*& lseg(middle, null)
+{
+  var beforeMiddle : LNode := start;
+  middle := start.next;
+  var last := middle;
+  
+  while (last != null && last.next != null)
+    invariant lseg(start, beforeMiddle) &*& beforeMiddle.next |-> middle &*& lseg(middle, last) &*& lseg(last, null)
+  {
+    beforeMiddle := middle;
+    middle := middle.next;
+    last := last.next;
+    if (last != null) {
+      last := last.next;
+    }
+  }
+  beforeMiddle.next := null;
+  
+  return middle;
+}
+
+
+procedure merge_sort(x: LNode) returns (res: LNode)
+  requires lseg(x, null)
+  ensures slseg(res, null)
+{
+  if (x == null || x.next == null) return x;
+	
+  var x2 := split(x);
+  var res1 := merge_sort(x);
+  var res2 := merge_sort(x2);
+  res := merge(res1, res2);
+  return res;
+} 

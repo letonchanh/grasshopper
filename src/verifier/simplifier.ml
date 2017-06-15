@@ -21,7 +21,8 @@ let elim_loops (prog : program) =
   let rec elim prog dep_procs proc = function
     | Loop (lc, pp) -> 
         let proc_name = 
-          fresh_ident ((string_of_ident (name_of_proc proc)) ^ "_loop") 
+          let name, num = fresh_ident ((string_of_ident (name_of_proc proc)) ^ "_loop") in
+	  (name, 9999 - num)  (* Horrible hack to sort inner loops before outer ones *)
         in
         let locals = 
           IdMap.filter 
