@@ -1,0 +1,44 @@
+{
+module SepLogicFlex
+open SepLogicParse
+}
+
+let digit    = ['0'-'9']
+let letdig   = ['0'-'9' 'a'-'z' 'A'-'Z' '_' ]
+let alphlet  = [        'a'-'z' 'A'-'Z' '_' ]
+let ws       = [' ' '\009' '\012']
+
+rule token = parse
+    '\r'                { token lexbuf }
+  | '\n'                { token lexbuf }
+
+  | "//"[^'\n']*'\n'
+                        { token lexbuf }
+  
+  | ws                  { token lexbuf }
+
+  | "Ex."               { EXBINDING }
+  | "true"              { TRUE }
+  | "emp"               { EMP } 
+
+  | "&&"                { LAND }
+  | "<>"                { NE }
+  | "=="                { EQ }
+
+  | "*"                 { STAR }
+  | "->"                { RIGHTARROW }
+  | "\\"                { BACKSLASH }
+  | "None"              { NONE }
+  | "|"                 { PIPE }
+
+  | ":"                 { COLON }
+  | ','                 { COMMA }
+  | '.'                 { PERIOD }
+
+  | '('                 { LPAREN }
+  | ')'                 { RPAREN }
+  | '['                 { LBRACK }
+  | ']'                 { RBRACK }
+
+  | (alphlet)(letdig)*  { ID(Microsoft.FSharp.Text.Lexing.LexBuffer<_>.LexemeString lexbuf) }
+  | eof                 { EOF }

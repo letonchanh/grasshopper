@@ -1,0 +1,72 @@
+%{
+open SepLogic
+%}
+
+%token <string> ID
+%token EXBINDING TRUE EMP
+%token LAND NE EQ
+%token STAR RIGHTARROW BACKSLASH NONE PIPE
+%token COLON COMMA PERIOD
+%token LPAREN RPAREN LBRACK RBRACK
+%token EOF
+
+%start formula
+
+%type <SymHeap> formula
+
+%%
+
+formula :
+    | LPAREN varList RPAREN RIGHTARROW EXBINDING varList PERIOD pureFormula COLON spatialFormula
+        { SymHeap.ofSeqs $2 $6 $8 (fst $10) (snd $10) }
+    | LPAREN varList RPAREN RIGHTARROW pureFormula COLON spatialFormula
+        { SymHeap.ofSeqs $2 Seq.empty $5 (fst $7) (snd $7) }
+    ;
+
+var : ID { VarAddr $1 }
+    ;
+
+varList :
+    | var               { [ $1 ] }
+    | var COMMA varList { $1 :: $3 }
+    ;
+
+expr :
+    | var  { if $1 = VarAddr "nil" then Nil else Var $1 }
+    ;
+
+exprList :
+    | expr                { [ $1 ] }
+    | expr COMMA exprList { $1 :: $3 }
+    ;
+
+pureFormulaAtom :
+    | expr NE expr { PureFormula.Relation (RelationType.Ne, $1, $3) }
+    | expr EQ expr { PureFormula.Relation (RelationType.Eq, $1, $3) }
+    ;
+
+pureFormula :
+    | pureFormulaAtom LAND pureFormula { $1 :: $3}
+    | pureFormulaAtom                  { [$1] }
+    | TRUE                             { [] }
+    ;
+
+pointsTo :
+    | expr RIGHTARROW LBRACK exprList RBRACK
+        { PointsTo ($1, $4) }
+
+predicate :
+    | ID LPAREN exprList PIPE BACKSLASH formula RPAREN
+        { Predicate (PredicateName.FromString $1, Some $6, $3) }
+    | ID LPAREN exprList PIPE NONE RPAREN
+        { Predicate (PredicateName.FromString $1, None, $3) }
+    ;
+
+spatialFormula :
+    | predicate STAR spatialFormula          { ($1 :: fst $3, snd $3) }
+    | pointsTo STAR spatialFormula           { (fst $3, $1 :: snd $3) }
+    | predicate                              { ([$1], []) }
+    | pointsTo                               { ([], [$1]) }
+    | EMP                                    { ([], []) }
+    ;
+

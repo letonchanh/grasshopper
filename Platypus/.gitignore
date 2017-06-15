@@ -1,0 +1,17 @@
+*.o
+*cmx
+*cmo
+*cmi
+packages/
+data/
+bin/
+*/obj/
+*.xml.gz
+*.suo
+*.pyc
+*Parse.fsi
+*Parse.fs
+*Flex.fs
+*.sw?
+*~
+*.DS_Store

@@ -1,0 +1,38 @@
+%{
+open State
+%}
+
+%token <string> ID
+%token <bigint> Num
+%token COLON COMMA
+%token EOF
+%token LPAREN RPAREN LBRACK RBRACK
+%token INTTYPE ADDRTYPE
+
+%start ghpState
+
+%type <((string * Value) list) * (bigint * string * Value) list> ghpState
+
+%%
+
+ghpState : 
+    | varList pointsToList { ($1, $2) }
+	| varList { ($1, []) }
+	| EOF { ([], [])}
+    ;
+varDef : 
+    | LBRACK ID COLON INTTYPE Num RBRACK { ($2, ValInt $5) }
+    | LBRACK ID COLON ADDRTYPE Num RBRACK { ($2, ValAddr $5) }
+    ;
+varList : 
+    | varDef          { [ $1 ] }
+    | varDef varList  { $1 :: $2 }
+    ;
+pointsToDef :
+    | LPAREN Num COMMA ID COMMA INTTYPE Num RPAREN { ($2, $4, ValInt $7) }
+    | LPAREN Num COMMA ID COMMA ADDRTYPE Num RPAREN { ($2, $4, ValAddr $7) }
+    ;
+pointsToList :
+    | pointsToDef              { [ $1 ] }
+    | pointsToDef pointsToList { $1 :: $2 }
+    ;

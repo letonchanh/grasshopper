@@ -1,0 +1,38 @@
+{
+module GHPStateFlex
+open GHPStateParse
+}
+
+let digit    = ['0'-'9']
+let letdig   = ['0'-'9' 'a'-'z' 'A'-'Z' '_' ]
+let letdigpling   = ['0'-'9' 'a'-'z' 'A'-'Z' '_' '!']
+let alphlet  = ['A'-'Z' 'a'-'z' '_' '$' '\'' ]
+let ws       = [' ' '\009' '\012']
+
+rule token = parse
+    '\r'                { token lexbuf }
+  | '\n'                { token lexbuf }
+
+  | "//"[^'\n']*'\n'
+                        { token lexbuf }
+  
+  | ws                  { token lexbuf }
+
+  | ":"                 { COLON }
+  | ','                 { COMMA }
+  | '('                 { LPAREN }
+  | ')'                 { RPAREN }
+  | '['                 { LBRACK }
+  | ']'                 { RBRACK }
+
+  | 'I'					{ INTTYPE }
+  | 'A'					{ ADDRTYPE }
+
+  | (digit)+            { Num(bigint.Parse (Microsoft.FSharp.Text.Lexing.LexBuffer<_>.LexemeString lexbuf)) }
+  | (alphlet)(letdig)*('!' letdig+)*        { ID(Microsoft.FSharp.Text.Lexing.LexBuffer<_>.LexemeString lexbuf) }
+  | eof                        { EOF }
+  | _                        { 
+                          begin
+                            token lexbuf
+                          end }
+

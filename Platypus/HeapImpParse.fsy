@@ -1,0 +1,98 @@
+%{
+open Program
+%}
+
+%token <string> ID
+%token <bigint> Num
+%token COLON COMMA
+%token EOF
+%token LPAREN RPAREN LBRACK RBRACK LCURLY RCURLY 
+%token DIV REM STAR
+%token PLUS MINUS EQ  GE  GT  LE  LT 
+%token NE NOT
+%token AND OR
+%token ASSIGN NONDET IF ELSE WHILE MALLOC RETURN DUMPSTATE
+
+%start program
+
+%type <Program> program
+%type <Method> method
+%type <Var list> varlist
+%type <Statement list> stmts
+%type <Statement> stmt
+%type <Var> var
+%type <IExpr> iexpr
+%type <IExpr list> iexprlist
+%type <BExpr> bexpr
+
+%left   OR AND PLUS MINUS STAR 
+%left   UMINUS
+
+%%
+
+program : method { { Program.methods = [$1] } }
+        | method program { { Program.methods = $1::($2.methods) } }
+        ;
+
+method  : ID LPAREN varlist RPAREN LCURLY stmts RCURLY 
+            { { Method.name = $1; 
+                Method.parameters = List.map (function | Var.StackVar(v) -> v | _ -> failwith "Ouch" ) $3;
+                Method.body = $6 } }
+        | ID LPAREN RPAREN LCURLY stmts RCURLY
+            { { Method.name = $1; 
+                Method.parameters = List.empty; 
+                Method.body = $5 } }
+        ;
+
+varlist : ID COMMA varlist { (Var.StackVar $1)::$3 }
+        | ID               { [Var.StackVar $1] }
+        ;
+
+stmts   : stmt stmts { $1::$2}
+        | stmt       { [$1] }
+        ;
+
+stmt    : var ASSIGN iexpr                                         { Statement.Assign ($1, $3)    }
+        | var ASSIGN MALLOC LPAREN iexpr RPAREN                    { Statement.Malloc ($1, $5)    }
+        | var ASSIGN ID LPAREN iexprlist RPAREN                    { Statement.Call ($1, $3, $5)  }
+        | RETURN iexpr                                             { Statement.Return ($2)        }
+        | WHILE bexpr LCURLY stmts RCURLY                          { Statement.While ($2, $4)     }
+        | IF bexpr LCURLY stmts RCURLY ELSE LCURLY stmts RCURLY    { Statement.If ($2, $4, $8)    }
+        | IF bexpr LCURLY stmts RCURLY                             { Statement.If ($2, $4, [])    }
+        | DUMPSTATE ID                                             { Statement.DumpState ($2)     }
+        ;
+
+var     : ID LBRACK iexpr RBRACK { Var.HeapVar ($1, $3) }
+        | ID                     { Var.StackVar $1 } 
+        ;
+
+iexprlist : iexpr COMMA iexprlist { $1::$3 }
+        | iexpr                   { [$1] }
+        ;
+
+iexpr   : Num                                    { IExpr.Const ($1) }
+        | MINUS iexpr %prec UMINUS               { IExpr.Sub (IExpr.Const(bigint(0)),$2) }
+        | var                                    { IExpr.Var ($1) }
+        | LPAREN iexpr RPAREN                    { $2 }
+        | iexpr PLUS iexpr                       { IExpr.Add ($1,$3) }
+        | iexpr MINUS iexpr                      { IExpr.Sub ($1,$3) }
+        | iexpr STAR iexpr                       { IExpr.Mul ($1,$3) }
+        | NONDET LPAREN iexpr COMMA iexpr RPAREN { IExpr.Nondet ($3, $5) }
+        ;
+
+bexpr   : iexpr LT iexpr      { BExpr.Lt ($1,$3) }
+        | iexpr GT iexpr      { BExpr.Gt ($1,$3) }
+        | iexpr LE iexpr      { BExpr.Le ($1,$3) }
+        | iexpr GE iexpr      { BExpr.Ge ($1,$3) }
+        | iexpr EQ iexpr      { BExpr.Eq ($1,$3) }
+        | iexpr NE iexpr      { BExpr.Ne ($1,$3) }
+        | NOT bexpr           { BExpr.Not $2 }
+        | bexpr AND bexpr     { BExpr.And ($1,$3) }
+        | bexpr OR bexpr      { BExpr.Or ($1,$3) }
+        | LPAREN bexpr RPAREN { $2 }
+        ;
+
+num     : Num { $1 }
+        | MINUS Num  { -$2 }
+        ;          
+

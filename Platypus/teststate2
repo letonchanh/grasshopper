@@ -1,0 +1,7 @@
+[srt : A 1]
+[min : A 1]
+[prv : A 0]
+[lst : A 1]
+[curr : A 0]
+(1, next, A 0)
+(1, data, I 0)
