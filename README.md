@@ -9,6 +9,7 @@ Training Platypus
 - To create data sets and train Platypus, run:
 
   `bash pipeline.sh flat release`     -  for the 3 var, no nesting dataset
+
   `bash pipeline.sh nested release`   -  for the 2 var, nested dataset
 - Grab a cup of coffee.
 
@@ -20,7 +21,9 @@ Testing Platypus
   `mono ./bin/Release/Platypus.exe --variable-number V --ds-nest-level N --states-per-formula 500 --group-size 5 --prediction-number 10 --model M --evaluate-model`
 
   Replace V, N with:
+
     3, 0  -  to test on the 3 var, no nesting dataset
+
     2, 1  -  to test on the 2 var, nested dataset
 
   Replace M with the timestamp of the trained model (look in `data/models/`) to use.
