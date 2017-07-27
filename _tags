@@ -1,1 +1,2 @@
 <**/*.ml>: annot, bin_annot
+<Platypus>: -traverse

@@ -54,7 +54,7 @@ else
     MSBuild "/p:Configuration=${CONFIGURATION}"
 fi
 
-CMD="--debug ../bin/${CONFIGURATION}/Platypus.exe"
+CMD="--debug ./bin/${CONFIGURATION}/Platypus.exe"
 ARGS="--variable-number ${VARS} --ds-nest-level ${NESTING} --states-per-formula ${STATES} --group-size ${STATE_GROUP_SIZE}"
 
 time ${DOTNET_PREFIX} ${CMD} ${ARGS} --create-formulas
