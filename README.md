@@ -1,6 +1,8 @@
 Cricket
 =======
 
+This repository contains the source code for the tools described in the paper [Learning Shape Analysis](https://www.microsoft.com/en-us/research/publication/learning-shape-analysis/).
+
 Training Platypus
 -----------------
 
