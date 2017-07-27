@@ -1,3 +1,35 @@
+Cricket
+=======
+
+Training Platypus
+-----------------
+
+- Go to `Platypus/'.
+- Run `mono /path/to/nuget.exe restore` to download the required NuGet packages.
+- To create data sets and train Platypus:
+  `bash pipeline.sh flat release`     -  for the 3 var, no nesting dataset
+  `bash pipeline.sh nested release`   -  for the 2 var, nested dataset
+- Grab a cup of coffee.
+
+Testing Platypus
+----------------
+
+- To evaluate platypus on the test portion of the datasets:
+  `mono ./bin/Release/Platypus.exe --variable-number V --ds-nest-level N --states-per-formula 500 --group-size 5 --prediction-number 10 --model M --evaluate-model`
+  Replace V, N with:
+    3, 0  -  to test on the 3 var, no nesting dataset
+    2, 1  -  to test on the 2 var, nested dataset
+  Replace M with the timestamp of the trained model (look in `data/models/`) to use.
+
+Testing Locust
+--------------------
+
+- Go to the root of the repository.
+- Run `./build.sh` to build Locust.
+- Run `bash run-benchmarks.sh` to run the Locust tests.
+
+The results will be in `logs/`, under a directory named with the timestamp of the tests.
+
 GRASShopper
 ===========
 ![Version 0.4 alpha](https://img.shields.io/badge/version-0.4_alpha-green.svg)
