@@ -3,6 +3,15 @@ Cricket
 
 This repository contains the source code for the tools described in the paper [Learning Shape Analysis](https://www.microsoft.com/en-us/research/publication/learning-shape-analysis/).
 
+Extra Installation Requirements
+---------------------------
+
+Apart from the standard requirements to build GRASShopper (see below), Cricket has the following additional requirements:
+
+- Ocamlgraph (easiest way to install this is `opam install ocamlgraph`)
+- The whole F# ecosystem (also works with mono for linux/OS X)
+- Python 2, and packages including Numpy, Tensorflow
+
 Training Platypus
 -----------------
 
