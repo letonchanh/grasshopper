@@ -1,8 +1,8 @@
 include "../include/sllist.spl";
 
-procedure copy(lst: Node) returns (ori: Node, res: Node)
+procedure copy(lst: Node) returns (res: Node)
   requires lseg(lst, null)
-  ensures lseg(ori, null) &*& lseg(res, null)
+  ensures lseg(lst, null) &*& lseg(res, null)
 {
   var curr, cp: Node := lst, null;
   while (curr != null) 
@@ -13,5 +13,5 @@ procedure copy(lst: Node) returns (ori: Node, res: Node)
     cp.next := old_cp;
     curr := curr.next;
   }
-  return lst, cp;
+  return cp;
 }

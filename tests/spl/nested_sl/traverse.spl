@@ -6,11 +6,12 @@ procedure traverse(x: OuterNode, y: OuterNode)
 {
   var oc := x;
   while (oc != y)
-    invariant nlseg(x, oc) &*& nlseg(oc, y)
+    invariant (oc == y || acc(oc)) -** nlseg(x, y)
   {
     var ic := oc.down;
     while (ic != null)
-      invariant nlseg(x, oc) &*& oc.onext |-> oc.onext &*& nlseg(oc.onext, y) &*& lseg(oc.down, ic) &*& lseg(ic, null)
+      invariant acc(oc)
+      invariant (ic == null || acc(ic)) -** lseg(oc.down, null)
     {
       ic := ic.inext;
     }
