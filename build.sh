@@ -6,7 +6,7 @@ set -e
 
 DIRS="-Is src/util,src/formulas,src/backends/smtlib,src/backends/c,src/programs,src/frontends/spl,src/prover,src/sl,src/verifier,src/cricket,src/main"
 TARGET="src/main/grasshopper src/main/vizmodel "
-FLAGS="-cflag -g -lflag -g -cflags -I,+ocamlgraph -lflags -I,+ocamlgraph -libs unix,str,graph $DIRS"
+FLAGS="-use-ocamlfind -pkgs ocamlgraph -cflag -g -lflag -g -libs unix,str $DIRS"
 OCAMLBUILD=ocamlbuild
 
 ocb()
